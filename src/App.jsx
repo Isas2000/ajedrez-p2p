@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Peer } from 'peerjs';
 import Sala from './Sala';
 import Tablero from './Tablero';
 import Chat from './Chat';
@@ -11,27 +12,93 @@ function App() {
   const [temaOscuro, setTemaOscuro] = useState(false);
   const [mensajes, setMensajes] = useState([]);
   const [mostrarModalSalir, setMostrarModalSalir] = useState(false);
+  const [movimientoRecibido, setMovimientoRecibido] = useState(null);
+
+  // Referencias para mantener las instancias vivas sin renderizar el componente de más
+  const peerRef = useRef(null);
+  const conexionRef = useRef(null);
+
+  // Limpiar peer al desmontar el componente si es necesario
+  useEffect(() => {
+    return () => {
+      if (peerRef.current) peerRef.current.destroy();
+    };
+  }, []);
 
   function crearSala() {
     setMiColor('white');
-    setTimeout(() => setCodigoGenerado('abc123-simulado'), 1000);
-    // SIMULACIÓN: asumimos que el amigo se conecta 2s después de generar el código.
-    // Tu amigo reemplazará esto por peer.on('connection', () => setPantalla('juego'))
-    setTimeout(() => setPantalla('juego'), 3000);
+    const nuevoPeer = new Peer();
+    peerRef.current = nuevoPeer;
+
+    nuevoPeer.on('open', (id) => {
+      setCodigoGenerado(id);
+    });
+
+    nuevoPeer.on('connection', (conn) => {
+      conexionRef.current = conn;
+      configurarConexion();
+      setPantalla('juego');
+    });
   }
 
   function unirseSala(codigo) {
     setMiColor('black');
-    setPantalla('juego');
+    const nuevoPeer = new Peer();
+    peerRef.current = nuevoPeer;
+
+    nuevoPeer.on('open', () => {
+      const conn = nuevoPeer.connect(codigo);
+      conexionRef.current = conn;
+      configurarConexion();
+      setPantalla('juego');
+    });
+  }
+
+  function configurarConexion() {
+    const conn = conexionRef.current;
+    if (!conn) return;
+
+    conn.on('data', (data) => {
+      if (data.tipo === 'movimiento') {
+        setMovimientoRecibido(data.datos);
+      } else if (data.tipo === 'chat') {
+        setMensajes((prev) => [...prev, { texto: data.datos.texto, autor: data.datos.autor }]);
+      }
+    });
+  }
+
+  function enviarMovimiento(movimiento) {
+    if (conexionRef.current && conexionRef.current.open) {
+      conexionRef.current.send({ tipo: 'movimiento', datos: movimiento });
+    }
+  }
+
+  function enviarMensajeChat(texto) {
+    // Añadir mensaje propio a la vista local
+    setMensajes((prev) => [...prev, { texto, autor: 'yo' }]);
+
+    // Enviar al rival por P2P
+    if (conexionRef.current && conexionRef.current.open) {
+      conexionRef.current.send({
+        tipo: 'chat',
+        datos: { texto, autor: 'rival' }
+      });
+    }
   }
 
   function confirmarSalida() {
+    if (conexionRef.current) {
+      conexionRef.current.close();
+    }
+    if (peerRef.current) {
+      peerRef.current.destroy();
+    }
     setMostrarModalSalir(false);
     setPantalla('sala');
     setMiColor(null);
     setCodigoGenerado(null);
     setMensajes([]);
-    // Aquí tu amigo cerraría la conexión P2P: conexion.close()
+    setMovimientoRecibido(null);
   }
 
   if (pantalla === 'sala') {
@@ -51,9 +118,18 @@ function App() {
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
         <div style={{ maxWidth: '500px', width: '100%' }}>
-          <Tablero miColor={miColor} temaOscuro={temaOscuro} />
+          <Tablero
+            miColor={miColor}
+            temaOscuro={temaOscuro}
+            onEnviarMovimiento={enviarMovimiento}
+            movimientoRecibido={movimientoRecibido}
+          />
         </div>
-        <Chat mensajes={mensajes} onEnviarMensaje={(t) => setMensajes(p => [...p, { texto: t, autor: 'yo' }])} temaOscuro={temaOscuro} />
+        <Chat
+          mensajes={mensajes}
+          onEnviarMensaje={enviarMensajeChat}
+          temaOscuro={temaOscuro}
+        />
       </div>
 
       <ModalConfirmar
