@@ -1,6 +1,6 @@
 # Ajedrez P2P
 
-Aquí se escribirá la documentación.
+Este es un ajedréz con p2p.
 
 1. Clonar el respositorio
 2. Instalar laa dependencias
