@@ -1,17 +1,22 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react'; // 1. Importamos useRef y useEffect
 
-// props:
-// - mensajes: array de { texto, autor }
-// - onEnviarMensaje: función que llamas cuando TÚ escribes algo
-// - temaOscuro: boolean para el estilo visual
 function Chat({ mensajes = [], onEnviarMensaje, temaOscuro = false }) {
   const [texto, setTexto] = useState('');
+  
+  // 2. Creamos la referencia para el final del scroll
+  const finalDelChatRef = useRef(null);
 
   function enviar() {
     if (!texto.trim()) return;
     onEnviarMensaje?.(texto);
     setTexto('');
   }
+
+  // 3. Usamos useEffect para hacer scroll cuando cambia la lista de mensajes
+  useEffect(() => {
+    // Comprobamos que la referencia existe y hacemos scroll suave
+    finalDelChatRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [mensajes]); // Este efecto se ejecuta cada vez que 'mensajes' cambia
 
   const colores = temaOscuro
     ? { fondo: '#2E2E2E', texto: '#F0F0F0', borde: '#555', inputFondo: '#3D3D3D' }
@@ -21,8 +26,7 @@ function Chat({ mensajes = [], onEnviarMensaje, temaOscuro = false }) {
     <div
       style={{
         width: '250px',
-        // IMPORTANTE: Mantuvimos el alto fijo del componente principal
-        height: '500px', // Asegúrate de darle un alto fijo al contenedor padre si no lo tiene ya
+        height: '500px',
         border: `1px solid ${colores.borde}`,
         borderRadius: '8px',
         padding: '12px',
@@ -33,14 +37,7 @@ function Chat({ mensajes = [], onEnviarMensaje, temaOscuro = false }) {
         color: colores.texto,
       }}
     >
-      {/* CONTENEDOR DE MENSAJES - CORREGIDO */}
-      {/*
-         Explicación de los cambios:
-         1. height: 0, flex: 1: Hace que ocupe todo el espacio disponible entre el input y el borde superior.
-         2. overflowY: 'auto': Muestra la barra de scroll si hay exceso de texto.
-         3. display: 'flex', flexDirection: 'column-reverse': Invierte el orden visual. El último mensaje (más nuevo) aparece arriba.
-         4. justify-content: 'flex-start': Al estar invertido, esto empuja el bloque entero de mensajes hacia abajo.
-      */}
+      {/* CONTENEDOR DE MENSAJES (con direction 'column' como acordamos) */}
       <div
         style={{
           height: 0,
@@ -48,20 +45,23 @@ function Chat({ mensajes = [], onEnviarMensaje, temaOscuro = false }) {
           overflowY: 'auto',
           marginBottom: '10px',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'column', // Flujo normal arriba-abajo
           justifyContent: 'flex-start',
-          paddingRight: '5px', // Pequeño padding para que el scroll no tape el texto
+          paddingRight: '5px',
         }}
       >
-        {/* Mapeamos los mensajes normalmente */}
         {mensajes.map((m, i) => (
           <p key={i} style={{ margin: '4px 0', wordBreak: 'break-word' }}>
             <strong>{m.autor}:</strong> {m.texto}
           </p>
         ))}
+        
+        {/* 4. Elemento vacío invisible justo al final de la lista */}
+        {/* Esta es el "ancla" a la que haremos scroll */}
+        <div ref={finalDelChatRef} />
       </div>
 
-      {/* Área de input (no se modificó) */}
+      {/* Área de input (sin cambios) */}
       <div style={{ display: 'flex', gap: '6px' }}>
         <input
           value={texto}
