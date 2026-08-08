@@ -48,7 +48,7 @@ function Chat({ mensajes = [], onEnviarMensaje, temaOscuro = false }) {
           overflowY: 'auto',
           marginBottom: '10px',
           display: 'flex',
-          flexDirection: 'column-reverse',
+          flexDirection: 'column',
           justifyContent: 'flex-start',
           paddingRight: '5px', // Pequeño padding para que el scroll no tape el texto
         }}
