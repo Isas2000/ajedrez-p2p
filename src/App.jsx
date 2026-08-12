@@ -13,6 +13,7 @@ function App() {
   const [mensajes, setMensajes] = useState([]);
   const [mostrarModalSalir, setMostrarModalSalir] = useState(false);
   const [movimientoRecibido, setMovimientoRecibido] = useState(null);
+  const [rivalDesconectado, setRivalDesconectado] = useState(false);
 
   // Referencias para mantener las instancias vivas sin renderizar el componente de más
   const peerRef = useRef(null);
@@ -65,7 +66,24 @@ function App() {
         setMensajes((prev) => [...prev, { texto: data.datos.texto, autor: data.datos.autor }]);
       }
     });
+    conn.on('close', () => {
+    setRivalDesconectado(true);
+  });
   }
+
+  function salirPorDesconexion() {
+  if (peerRef.current) {
+    peerRef.current.destroy();
+  }
+  setRivalDesconectado(false);
+  setPantalla('sala');
+  setMiColor(null);
+  setCodigoGenerado(null);
+  setMensajes([]);
+  setMovimientoRecibido(null);
+}
+    
+  
 
   function enviarMovimiento(movimiento) {
     if (conexionRef.current && conexionRef.current.open) {
@@ -137,6 +155,13 @@ function App() {
         mensaje="¿Estás seguro de salir de la partida? Si te sales se concluirá como terminada."
         onAceptar={confirmarSalida}
         onCancelar={() => setMostrarModalSalir(false)}
+      />
+
+      <ModalConfirmar
+        visible={rivalDesconectado}
+        mensaje="Tu rival abandonó la partida."
+        onAceptar={salirPorDesconexion}
+        soloAceptar={true}
       />
     </div>
   );
